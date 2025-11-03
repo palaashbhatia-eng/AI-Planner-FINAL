@@ -4,7 +4,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const currentUser = localStorage.getItem('planner_currentUser');
     if (!currentUser) {
         // Not logged in! Redirect to login page.
-        window.location.href = 'login.html';
+       window.location.href = 'index.html';
         return; // Stop running this script
     }
 
@@ -226,4 +226,5 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- 6. INITIALIZATION ---
     loadTasks();
     renderTasks();
+
 });
