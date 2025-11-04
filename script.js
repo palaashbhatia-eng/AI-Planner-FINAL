@@ -3,9 +3,9 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- 1. AUTHENTICATION CHECK & USER SETUP ---
     const currentUser = localStorage.getItem('planner_currentUser');
     if (!currentUser) {
-        // Not logged in! Redirect to login page.
-       window.location.href = 'index.html';
-        return; // Stop running this script
+        // Not logged in! Redirect to index.html (which is the login page)
+        window.location.href = 'index.html';
+        return; 
     }
 
     // --- 2. GET HTML ELEMENTS ---
@@ -17,23 +17,26 @@ document.addEventListener('DOMContentLoaded', () => {
     const generatePlanBtn = document.getElementById('generate-plan-btn');
     const studyPlanDiv = document.getElementById('study-plan');
 
+    // 🆕 NEW: Get the file input element
+    const pdfFileInput = document.getElementById('pdf-file-input');
+
     // User elements
     const welcomeMsg = document.getElementById('welcome-msg');
     const logoutBtn = document.getElementById('logout-btn');
 
-    welcomeMsg.textContent = `Welcome, ${currentUser}!`; // Personalize!
+    welcomeMsg.textContent = `Welcome, ${currentUser}!`;
 
     let tasks = [];
 
     // --- 3. DATA & AUTH FUNCTIONS ---
 
     function logout() {
-        localStorage.removeItem('planner_currentUser'); // Log out
-        window.location.href = 'login.html'; // Go back to login
+        localStorage.removeItem('planner_currentUser'); 
+        // Redirect to index.html (the login page)
+        window.location.href = 'index.html'; 
     }
 
     function saveTasks() {
-        // Save tasks under a key unique to the current user
         localStorage.setItem(`tasks_${currentUser}`, JSON.stringify(tasks));
     }
 
@@ -58,6 +61,12 @@ document.addEventListener('DOMContentLoaded', () => {
         const dueDate = dueDateInput.value;
         const difficulty = difficultyInput.value;
         const difficultyText = difficultyInput.options[difficultyInput.selectedIndex].text;
+        
+        // 🆕 NEW: Capture file information
+        const file = pdfFileInput.files[0];
+        const fileName = file ? file.name : null;
+        // Create a temporary local URL for immediate session use
+        const fileURL = file ? URL.createObjectURL(file) : null; 
 
         if (taskName === '' || dueDate === '') {
             alert('Please enter both a task and a due date.');
@@ -70,13 +79,17 @@ document.addEventListener('DOMContentLoaded', () => {
             dueDate: dueDate,
             difficulty: parseInt(difficulty),
             difficultyText: difficultyText,
-            completed: false
+            completed: false,
+            fileName: fileName, // 🆕 NEW
+            fileURL: fileURL    // 🆕 NEW (will only persist until browser tab is closed)
         };
 
         tasks.push(task);
         saveTasks();
         renderTasks();
-
+        
+        // Clear all inputs after adding
+        pdfFileInput.value = ''; // 🆕 NEW: Clears the file input
         taskInput.value = '';
         dueDateInput.value = '';
         difficultyInput.value = '3';
@@ -85,7 +98,6 @@ document.addEventListener('DOMContentLoaded', () => {
     function renderTasks() {
         taskListDiv.innerHTML = '';
         
-        // Sort tasks: completed at the bottom
         const sortedTasks = [...tasks].sort((a, b) => a.completed - b.completed);
 
         if (sortedTasks.length === 0) {
@@ -102,13 +114,21 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             const formattedDate = new Date(task.dueDate).toLocaleDateString("en-US", { timeZone: 'UTC' });
+            
+            // 🆕 NEW: Generate the File Link HTML
+            let fileLink = '';
+            // NOTE: The fileURL is temporary. This link will only work in the browser session where the file was uploaded.
+            if (task.fileName && task.fileURL) {
+                fileLink = `<a href="${task.fileURL}" target="_blank" class="file-link"><i class="fa-solid fa-file-pdf"></i> ${task.fileName}</a>`;
+            }
+
 
             taskElement.innerHTML = `
                 <div class="task-info">
                     <span><strong>${task.name}</strong> (Due: ${formattedDate})</span>
                     <br>
                     <small>Difficulty: ${task.difficultyText}</small>
-                </div>
+                    ${fileLink}  </div>
                 <div class="task-actions">
                     <button class="complete-btn" data-id="${task.id}" title="${task.completed ? 'Mark incomplete' : 'Mark complete'}">
                         <i class="fa-solid ${task.completed ? 'fa-undo' : 'fa-check'}"></i>
@@ -131,7 +151,6 @@ document.addEventListener('DOMContentLoaded', () => {
         tasks = tasks.filter(task => task.id !== taskIdToDelete);
         saveTasks();
         renderTasks();
-        // Clear plan since list changed
         studyPlanDiv.innerHTML = '<p class="placeholder">Your generated plan will appear here...</p>';
     }
 
@@ -144,10 +163,8 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         saveTasks();
         renderTasks();
-        // Clear plan since list changed
         studyPlanDiv.innerHTML = '<p class="placeholder">Your generated plan will appear here...</p>';
     }
-
 
     /**
      * =======================================================
@@ -172,13 +189,11 @@ document.addEventListener('DOMContentLoaded', () => {
             const timeDiff = dueDate.getTime() - today.getTime();
             const daysRemaining = Math.max(0, Math.ceil(timeDiff / (1000 * 60 * 60 * 24)));
             
-            // Priority Score: Lower score = HIGHER urgency (Days Remaining minus a fraction of Difficulty)
             const priorityScore = daysRemaining - (task.difficulty / 10); 
 
             return { ...task, daysRemaining: daysRemaining, priorityScore: priorityScore };
         });
 
-        // Sort by the calculated AI Priority Score
         tasksWithPriority.sort((a, b) => a.priorityScore - b.priorityScore);
 
         // Generate the plan based on rules
@@ -226,5 +241,4 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- 6. INITIALIZATION ---
     loadTasks();
     renderTasks();
-
 });
